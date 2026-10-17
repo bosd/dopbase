@@ -117,9 +117,12 @@ record ID, and reason when something does not match. Records written before
 this release are sealed into the chain on the next startup, so `unsequenced`
 stays at zero.
 
-The chain columns are additive: the existing audit list keeps its shape and
-filters, and verification reads no secret values. `dopbase audit verify` runs
-the same check from the terminal.
+The chain columns are additive: the audit list keeps its shape and filters,
+and every item now carries `seq`, `prevHash`, and `recordHash`, so records
+exported from `GET /api/v1/audit-events` keep the evidence needed to check
+them outside Dopbase. Verification reads no secret values. `dopbase audit
+verify` runs the same check from the terminal, and `dopbase audit export`
+streams the filtered list as JSON lines.
 
 ## Authentication
 

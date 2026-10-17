@@ -143,6 +143,16 @@ fn query_builders_keep_the_existing_encoding() {
     api::environments::resolve("payment service/main"),
     "/api/v1/environments/resolve?reference=payment+service%2Fmain"
   );
+  assert_eq!(api::audit::collection(&[]), "/api/v1/audit-events");
+  assert_eq!(
+    api::audit::collection(&[("action", "secret.updated"), ("limit", "200")]),
+    "/api/v1/audit-events?action=secret.updated&limit=200"
+  );
+  // Empty filter values are skipped instead of sent as blank parameters.
+  assert_eq!(
+    api::audit::collection(&[("action", ""), ("actor", "admin@example.com")]),
+    "/api/v1/audit-events?actor=admin%40example.com"
+  );
 }
 
 #[test]

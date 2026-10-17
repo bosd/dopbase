@@ -16,6 +16,12 @@ pub struct AuditEvent {
   #[sqlx(json)]
   pub metadata: Value,
   pub created_at: String,
+  /// Position in the audit hash chain, and the hashes of the record before
+  /// this one and of this record's own contents. Absent only for records
+  /// that predate the chain and have not been sealed yet.
+  pub seq: Option<i64>,
+  pub prev_hash: Option<String>,
+  pub record_hash: Option<String>,
 }
 #[derive(Deserialize, IntoParams)]
 #[into_params(parameter_in=Query)]

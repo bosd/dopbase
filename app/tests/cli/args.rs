@@ -611,6 +611,69 @@ fn audit_verify_parses_with_the_global_json_flag() {
 }
 
 #[test]
+fn audit_export_parses_its_filters_and_output() {
+  let cli = Cli::try_parse_from(["dopbase", "audit", "export"]).unwrap();
+  assert!(matches!(
+    cli.command,
+    Command::Audit {
+      command: AuditCommand::Export {
+        output: None,
+        force: false,
+        limit: None,
+        ..
+      }
+    }
+  ));
+  let cli = Cli::try_parse_from([
+    "dopbase",
+    "--json",
+    "audit",
+    "export",
+    "--output",
+    "audit.jsonl",
+    "--force",
+    "--action",
+    "secret.updated",
+    "--project",
+    "fixture",
+    "--environment",
+    "fixture/local",
+    "--actor",
+    "admin@example.com",
+    "--limit",
+    "10",
+  ])
+  .unwrap();
+  assert!(cli.json);
+  match cli.command {
+    Command::Audit {
+      command:
+        AuditCommand::Export {
+          output,
+          force,
+          action,
+          project,
+          environment,
+          actor,
+          limit,
+        },
+    } => {
+      assert_eq!(output.unwrap().to_str().unwrap(), "audit.jsonl");
+      assert!(force);
+      assert_eq!(action.unwrap(), "secret.updated");
+      assert_eq!(project.unwrap(), "fixture");
+      assert_eq!(environment.unwrap(), "fixture/local");
+      assert_eq!(actor.unwrap(), "admin@example.com");
+      assert_eq!(limit, Some(10));
+    }
+    unexpected => {
+      let _ = unexpected;
+      panic!("expected audit export");
+    }
+  }
+}
+
+#[test]
 fn secret_rotate_grace_accepts_zero_hours_and_days() {
   for value in ["0", "1h", "24h", "7d"] {
     assert!(
@@ -1009,6 +1072,7 @@ fn parses_each_public_command_and_detects_missing_cases() {
     &["dopbase", "token", "list", "billing/local"],
     &["dopbase", "token", "revoke", "tok_01"],
     &["dopbase", "audit", "verify"],
+    &["dopbase", "audit", "export"],
     &["dopbase", "run", "--", "true"],
     &["dopbase", "cache", "list"],
     &["dopbase", "cache", "clean"],

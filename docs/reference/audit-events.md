@@ -45,7 +45,9 @@ modifying, removing, or inserting a record leaves a trace at that point.
 
 The chain proves that a record was not edited after it was written. It cannot
 stop someone with write access to the database file from deleting the newest
-records, so ship an export elsewhere when you need more than tamper evidence.
+records, so ship an export elsewhere when you need more than tamper evidence:
+`dopbase audit export` streams records as JSON lines to standard output or a
+file, chain fields included, for external, write-once storage.
 
 ## Record contents
 

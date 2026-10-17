@@ -169,6 +169,25 @@ pub mod tokens {
 pub mod audit {
   pub const COLLECTION: &str = api_path!("/audit-events");
   pub const VERIFY: &str = api_path!("/audit-events/verify");
+
+  /// Build the audit list path with optional filters. Empty values are
+  /// skipped, so callers can pass their options directly.
+  pub fn collection(filters: &[(&str, &str)]) -> String {
+    let query = filters
+      .iter()
+      .filter(|(_, value)| !value.is_empty())
+      .map(|(name, value)| {
+        let encoded: String = url::form_urlencoded::byte_serialize(value.as_bytes()).collect();
+        format!("{name}={encoded}")
+      })
+      .collect::<Vec<_>>()
+      .join("&");
+    if query.is_empty() {
+      COLLECTION.to_owned()
+    } else {
+      format!("{COLLECTION}?{query}")
+    }
+  }
 }
 
 pub mod instance {

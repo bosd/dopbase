@@ -552,17 +552,20 @@ values.
 ## Audit commands
 
 The audit log answers who performed a sensitive action, where it happened, and
-when. Administrators review it on the Audit page in the Admin UI, and verify
-its integrity from the terminal:
+when. Administrators review it on the Audit page in the Admin UI, verify its
+integrity from the terminal, and export it as JSON lines for external,
+write-once storage:
 
 ```bash
 dopbase audit verify
+dopbase audit export --output audit-2026-10-17.jsonl
 dopbase --json audit verify
 ```
 
-| Command                | Purpose                              |
-| ---------------------- | ------------------------------------ |
-| `dopbase audit verify` | Recompute the audit log's hash chain |
+| Command                | Purpose                               |
+| ---------------------- | ------------------------------------- |
+| `dopbase audit verify` | Recompute the audit log's hash chain  |
+| `dopbase audit export` | Stream matching records as JSON lines |
 
 Every audit record stores the hash of the record before it, so a record that
 was modified, removed, or inserted after the fact stands out at that point in
@@ -576,6 +579,34 @@ result, and `--json` prints the full report including the head sequence and
 hash for external anchoring. See
 [audit events](/reference/audit-events#integrity-and-verification) for what the
 chain does and does not prove.
+
+`dopbase audit export` writes one JSON object per line to standard output, or
+to a file with `--output <FILE>` (mode `0600`, never replacing an existing
+file without `--force`). Each line is the record exactly as the audit list API
+returns it, chain fields `seq`, `prevHash` and `recordHash` included, so an
+exported copy can be checked and anchored outside Dopbase:
+
+```bash
+dopbase audit export > audit.jsonl
+dopbase audit export --action secret.updated --limit 500
+dopbase audit export --project production --environment production/main
+```
+
+| Option                            | Purpose                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `--action <ACTION>`               | Only records with this action, for example `secret.updated` |
+| `--project <PROJECT_REF>`         | Only records for this project (name or ID)                  |
+| `--environment <ENVIRONMENT_REF>` | Only records for this environment (`PROJECT/NAME` or ID)    |
+| `--actor <ACTOR>`                 | Only records for this actor (email or actor ID)             |
+| `--limit <N>`                     | Stop after `N` records                                      |
+| `--output <FILE>`                 | Write to a file instead of standard output                  |
+| `--force`                         | Replace an existing output file                             |
+
+Without filters the whole log is exported by following pagination to the end.
+Export requires an administrator account, reads no secret values, and leaves
+standard output as raw JSON lines in every mode so it can be piped directly;
+with `--output` and `--json` the summary is printed as
+`{"exported":N,"path":"FILE"}` instead.
 
 ## Run a process
 
