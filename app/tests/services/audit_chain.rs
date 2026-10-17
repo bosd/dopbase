@@ -1,4 +1,4 @@
-use app::services::audit_chain;
+use app::services::audit_chain::{self, Retention};
 use app::services::db::DbClient;
 use serde_json::json;
 
@@ -17,6 +17,15 @@ async fn record(
   id: &str,
   action: &str,
 ) {
+  record_at(db, id, action, &chrono::Utc::now().to_rfc3339()).await;
+}
+
+async fn record_at(
+  db: &DbClient,
+  id: &str,
+  action: &str,
+  created_at: &str,
+) {
   let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
   audit_chain::append(
     &mut transaction,
@@ -30,7 +39,7 @@ async fn record(
     Some("secret"),
     Some("API_KEY"),
     &json!({ "action": action }).to_string(),
-    &chrono::Utc::now().to_rfc3339(),
+    created_at,
   )
   .await
   .unwrap();
@@ -250,4 +259,144 @@ async fn chain_survives_a_migration_rollback_and_reapply() {
   let report = verify(&db).await;
   assert!(report.ok, "chain broke: {:?}", report.broken);
   assert_eq!(report.records, 3);
+}
+
+#[tokio::test]
+async fn retention_archives_expired_records_and_the_chain_still_verifies() {
+  let (directory, db) = database().await;
+  for index in 0..5 {
+    record_at(
+      &db,
+      &format!("aud_old_{index}"),
+      "secret.updated",
+      "2000-01-01T00:00:00+00:00",
+    )
+    .await;
+  }
+  for index in 0..2 {
+    record(&db, &format!("aud_new_{index}"), "secret.updated").await;
+  }
+
+  let archive = directory.path().join("archive");
+  let retention = Retention::new(archive.clone(), 30);
+  let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+  assert_eq!(retention.apply(&mut transaction).await.unwrap(), 5);
+  transaction.commit().await.unwrap();
+
+  // Expired records are gone from the log and archived as JSON lines that
+  // keep every stored column, chain fields included.
+  let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM audit_events")
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+  assert_eq!(remaining, 2);
+  let archived = std::fs::read_to_string(archive.join("audit-000001-000005.jsonl")).unwrap();
+  let lines = archived
+    .lines()
+    .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+    .collect::<Vec<_>>();
+  assert_eq!(lines.len(), 5);
+  assert_eq!(lines[0]["id"], "aud_old_0");
+  assert_eq!(lines[4]["id"], "aud_old_4");
+  assert_eq!(lines[4]["seq"], 5);
+  assert!(lines[0]["recordHash"].is_string(), "{:?}", lines[0]);
+  assert!(lines[0]["metadata"].is_object());
+
+  // The surviving records verify from the anchor the pruning left behind.
+  let report = verify(&db).await;
+  assert!(report.ok, "chain broke: {:?}", report.broken);
+  assert_eq!(report.records, 2);
+  assert_eq!(report.pruned_seq, Some(5));
+  assert_eq!(report.head_seq, Some(7));
+
+  // A later append continues the chain after the anchor.
+  record(&db, "aud_after", "secret.updated").await;
+  let report = verify(&db).await;
+  assert!(report.ok, "chain broke: {:?}", report.broken);
+  assert_eq!(report.records, 3);
+  assert_eq!(report.head_seq, Some(8));
+
+  // Applying again finds nothing left to prune.
+  let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+  assert_eq!(retention.apply(&mut transaction).await.unwrap(), 0);
+  transaction.commit().await.unwrap();
+}
+
+#[tokio::test]
+async fn retention_keeps_the_chain_continuous_when_it_removes_every_record() {
+  let (directory, db) = database().await;
+  for index in 0..3 {
+    record_at(
+      &db,
+      &format!("aud_old_{index}"),
+      "secret.updated",
+      "2000-01-01T00:00:00+00:00",
+    )
+    .await;
+  }
+
+  let retention = Retention::new(directory.path().join("archive"), 30);
+  let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+  assert_eq!(retention.apply(&mut transaction).await.unwrap(), 3);
+  transaction.commit().await.unwrap();
+
+  let report = verify(&db).await;
+  assert!(report.ok, "chain broke: {:?}", report.broken);
+  assert_eq!(report.records, 0);
+  assert_eq!(report.pruned_seq, Some(3));
+
+  // The next append continues after the anchor instead of restarting the
+  // sequence at genesis, which would look like tampering.
+  record(&db, "aud_new", "secret.updated").await;
+  let report = verify(&db).await;
+  assert!(report.ok, "chain broke: {:?}", report.broken);
+  assert_eq!(report.records, 1);
+  assert_eq!(report.head_seq, Some(4));
+  let predecessor: Option<String> =
+    sqlx::query_scalar("SELECT prev_hash FROM audit_events WHERE id='aud_new'")
+      .fetch_one(db.pool())
+      .await
+      .unwrap();
+  assert!(
+    predecessor.is_some(),
+    "the first surviving record stores its predecessor's hash"
+  );
+}
+
+#[tokio::test]
+async fn retention_keeps_an_expired_record_behind_a_retained_one() {
+  let (directory, db) = database().await;
+  // A clock that stepped backwards can timestamp a later append before an
+  // earlier one. Retention keeps that record: removing it would leave a
+  // hole in the chain no anchor can describe.
+  record_at(
+    &db,
+    "aud_old",
+    "secret.updated",
+    "2000-01-01T00:00:00+00:00",
+  )
+  .await;
+  record(&db, "aud_fresh", "secret.updated").await;
+  record_at(
+    &db,
+    "aud_stale",
+    "secret.updated",
+    "2000-01-02T00:00:00+00:00",
+  )
+  .await;
+
+  let retention = Retention::new(directory.path().join("archive"), 30);
+  let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
+  assert_eq!(retention.apply(&mut transaction).await.unwrap(), 1);
+  transaction.commit().await.unwrap();
+
+  let ids = sqlx::query_scalar::<_, String>("SELECT id FROM audit_events ORDER BY seq")
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+  assert_eq!(ids, ["aud_fresh", "aud_stale"]);
+  let report = verify(&db).await;
+  assert!(report.ok, "chain broke: {:?}", report.broken);
+  assert_eq!(report.records, 2);
+  assert_eq!(report.pruned_seq, Some(1));
 }

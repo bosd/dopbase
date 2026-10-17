@@ -12,6 +12,11 @@ pub const SERVER_CONFIG_FILENAME: &str = "server.toml";
 pub const DAEMON_PID_FILENAME: &str = "dopbase.pid";
 pub const DAEMON_LOG_FILENAME: &str = "serve.log";
 
+/// Subdirectory of the data directory where retention archives expired audit
+/// records before deleting them.
+pub const AUDIT_ARCHIVE_DIRECTORY_NAME: &str = "audit-archive";
+
+pub const ENV_AUDIT_RETENTION_DAYS: &str = "DOPBASE_AUDIT_RETENTION_DAYS";
 pub const ENV_DATA_DIR: &str = "DOPBASE_DATA_DIR";
 pub const ENV_DOCS: &str = "DOPBASE_DOCS";
 pub const ENV_WEB_UI: &str = "DOPBASE_WEB_UI";
@@ -26,7 +31,7 @@ pub const ENV_SHUTDOWN_GRACE_SECONDS: &str = "DOPBASE_SHUTDOWN_GRACE_SECONDS";
 pub const ENV_TOKEN: &str = "DOPBASE_TOKEN";
 
 /// Every environment variable read by the Dopbase executable.
-pub const fn executable_environment_names() -> [&'static str; 12] {
+pub const fn executable_environment_names() -> [&'static str; 13] {
   [
     ENV_TOKEN,
     ENV_SERVER_URL,
@@ -40,13 +45,14 @@ pub const fn executable_environment_names() -> [&'static str; 12] {
     ENV_WEB_UI,
     ENV_MASTER_KEY_PATH,
     ENV_SHUTDOWN_GRACE_SECONDS,
+    ENV_AUDIT_RETENTION_DAYS,
   ]
 }
 
 /// Every `DOPBASE_*` environment variable the server configuration reads.
 /// The background server strips these from its child process so the daemon
 /// resolves its configuration from the captured launch inputs.
-pub const fn daemon_environment_names() -> [&'static str; 9] {
+pub const fn daemon_environment_names() -> [&'static str; 10] {
   [
     ENV_DATA_DIR,
     ENV_DOCS,
@@ -57,5 +63,6 @@ pub const fn daemon_environment_names() -> [&'static str; 9] {
     ENV_PUBLIC_URL,
     ENV_SERVER_URL,
     ENV_SHUTDOWN_GRACE_SECONDS,
+    ENV_AUDIT_RETENTION_DAYS,
   ]
 }

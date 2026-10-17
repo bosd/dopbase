@@ -12,6 +12,7 @@ Environment variables:
   DOPBASE_WEB_UI                  Enable or disable the web UI (default: true)
   DOPBASE_MASTER_KEY_PATH         Path to the server master key file `./path/to/your.key`
   DOPBASE_SHUTDOWN_GRACE_SECONDS  Seconds allowed for graceful shutdown
+  DOPBASE_AUDIT_RETENTION_DAYS    Days to keep audit records (unset keeps the whole log)
 
 Quickstart:
   dopbase server setup                     # initialize the local instance once

@@ -49,6 +49,36 @@ records, so ship an export elsewhere when you need more than tamper evidence:
 `dopbase audit export` streams records as JSON lines to standard output or a
 file, chain fields included, for external, write-once storage.
 
+## Retention
+
+`audit_retention_days` in `server.toml`, or `DOPBASE_AUDIT_RETENTION_DAYS`,
+sets how long audit records are kept. Unset, which is the default, keeps the
+whole log. A window of `0` days is rejected: a policy that removes everything
+is a misconfiguration, not a retention rule.
+
+When records expire, Dopbase applies one clear rule:
+
+1. The expired records are written to `audit-archive/` in the data directory
+   as JSON lines, one file per contiguous sequence range, named
+   `audit-000001-000042.jsonl`. Each line is the record with every stored
+   column, chain fields included, so the archive can be checked and shipped
+   like an export.
+2. Only then are they deleted, in the same transaction, together with an
+   anchor recording the newest removed record's position and hash.
+3. Verification continues from that anchor, so a pruned log still verifies
+   as one unbroken chain, and `dopbase audit verify` reports
+   `Pruned through: sequence N` instead of a gap.
+
+Retention applies once at startup and then on each audit write, so a running
+server prunes without a scheduler. Only the oldest contiguous run of records
+is removed; a record timestamped before its predecessor, which a backwards
+clock step can produce, is kept until everything before it has expired too,
+because deleting it would leave a hole no anchor can describe.
+
+Archives are not part of `dopbase backup snapshot`, which stores the database
+only: copy `audit-archive/` with the rest of your backups, or ship it
+elsewhere with `dopbase audit export`.
+
 ## Record contents
 
 Root and admin can review user, AI account, and backup history in the Audit page.

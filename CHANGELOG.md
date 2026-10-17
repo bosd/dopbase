@@ -8,7 +8,8 @@ Dopbase 0.1.10 adds overlapping secret rotation. A rotated secret keeps the
 value it replaced valid for a grace period, so consumers pick up the new
 credential at their own pace instead of at a coordinated cutover. The audit log
 becomes tamper-evident: every record joins a hash chain that `dopbase audit
-verify` checks, and `dopbase audit export` ships the log as JSON lines.
+verify` checks, `dopbase audit export` ships the log as JSON lines, and a
+configurable retention archives expired records before deleting them.
 
 ### Added
 
@@ -70,6 +71,17 @@ verify` checks, and `dopbase audit export` ships the log as JSON lines.
   chain fields (`seq`, `prevHash`, `recordHash`) included, so an exported copy
   can be anchored and checked outside Dopbase. Export requires an
   administrator account and reads no secret values.
+
+- `audit_retention_days` in `server.toml`, or `DOPBASE_AUDIT_RETENTION_DAYS`,
+  sets how long audit records are kept; unset keeps the whole log. Expired
+  records are archived as JSON lines to `audit-archive/` in the data
+  directory and only then deleted, in the same transaction, together with an
+  anchor that records where the chain continues. `dopbase audit verify`
+  picks the chain back up at that anchor and reports
+  `Pruned through: sequence N`, so retention never reads as tampering. Only
+  the oldest contiguous run of records is removed. Retention applies at
+  startup and on each audit write, so no scheduler is involved. Back up
+  `audit-archive/` separately: snapshots store the database only.
 
 ## 0.1.9 - 2026-10-07
 

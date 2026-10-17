@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
 use crate::constants::config::{
-  CLIENT_CONFIG_FILENAME, DATA_DIRECTORY_NAME, DATABASE_FILENAME, DEFAULT_PORT, ENV_DATA_DIR,
-  ENV_DOCS, ENV_HOST, ENV_MASTER_KEY_PATH, ENV_PORT, ENV_PUBLIC_URL, ENV_SHUTDOWN_GRACE_SECONDS,
-  ENV_WEB_UI, MASTER_KEY_FILENAME, SERVER_CONFIG_FILENAME, SERVER_HOST_PLACEHOLDER,
+  CLIENT_CONFIG_FILENAME, DATA_DIRECTORY_NAME, DATABASE_FILENAME, DEFAULT_PORT,
+  ENV_AUDIT_RETENTION_DAYS, ENV_DATA_DIR, ENV_DOCS, ENV_HOST, ENV_MASTER_KEY_PATH, ENV_PORT,
+  ENV_PUBLIC_URL, ENV_SHUTDOWN_GRACE_SECONDS, ENV_WEB_UI, MASTER_KEY_FILENAME,
+  SERVER_CONFIG_FILENAME, SERVER_HOST_PLACEHOLDER,
 };
 pub use crate::constants::config::{DEFAULT_BIND_ADDRESS, DEFAULT_PUBLIC_URL};
 
@@ -40,6 +41,10 @@ pub struct ServerConfig {
   pub public_url: String,
   pub database_url: String,
   pub shutdown_grace_seconds: u64,
+  /// Days audit records are kept. When set, expired records are archived to
+  /// the data directory and deleted; unset keeps the whole log.
+  #[serde(skip)]
+  pub audit_retention_days: Option<u64>,
   #[serde(skip)]
   pub docs_enabled: bool,
   #[serde(skip)]
@@ -85,6 +90,7 @@ struct ServerConfigFile {
   port: Option<u16>,
   host: Option<String>,
   shutdown_grace_seconds: Option<u64>,
+  audit_retention_days: Option<u64>,
   docs: Option<bool>,
   web_ui: Option<bool>,
   master_key: Option<MasterKeyConfigFile>,
@@ -105,6 +111,7 @@ pub struct EnvironmentOverrides {
   pub port: Option<String>,
   pub host: Option<String>,
   pub shutdown_grace_seconds: Option<String>,
+  pub audit_retention_days: Option<String>,
   pub docs: Option<String>,
   pub web_ui: Option<String>,
   pub master_key_path: Option<PathBuf>,
@@ -118,6 +125,7 @@ impl EnvironmentOverrides {
       port: env::var(ENV_PORT).ok(),
       host: env::var(ENV_HOST).ok(),
       shutdown_grace_seconds: env::var(ENV_SHUTDOWN_GRACE_SECONDS).ok(),
+      audit_retention_days: env::var(ENV_AUDIT_RETENTION_DAYS).ok(),
       docs: env::var(ENV_DOCS).ok(),
       web_ui: env::var(ENV_WEB_UI).ok(),
       master_key_path: env::var_os(ENV_MASTER_KEY_PATH).map(PathBuf::from),
@@ -154,6 +162,7 @@ impl ServerConfig {
       bind_address: DEFAULT_BIND_ADDRESS.into(),
       public_url: DEFAULT_PUBLIC_URL.into(),
       shutdown_grace_seconds: 10,
+      audit_retention_days: None,
       docs_enabled: false,
       web_ui_enabled: true,
       daemonized: false,
@@ -244,6 +253,9 @@ impl ServerConfig {
     if let Some(value) = file.shutdown_grace_seconds {
       self.shutdown_grace_seconds = value;
     }
+    if let Some(value) = file.audit_retention_days {
+      self.audit_retention_days = Some(value);
+    }
     if let Some(value) = file.web_ui {
       self.web_ui_enabled = value;
     }
@@ -273,6 +285,13 @@ impl ServerConfig {
       self.shutdown_grace_seconds = value
         .parse()
         .context("invalid DOPBASE_SHUTDOWN_GRACE_SECONDS")?;
+    }
+    if let Some(value) = environment.audit_retention_days {
+      self.audit_retention_days = Some(
+        value
+          .parse()
+          .context("invalid DOPBASE_AUDIT_RETENTION_DAYS")?,
+      );
     }
     if let Some(value) = environment.web_ui {
       self.web_ui_enabled = value.parse().context("invalid DOPBASE_WEB_UI")?;
@@ -385,6 +404,9 @@ impl ServerConfig {
   pub fn validate(&self) -> Result<()> {
     if self.version != 1 {
       bail!("unsupported server configuration version {}", self.version);
+    }
+    if self.audit_retention_days == Some(0) {
+      bail!("audit_retention_days must be at least 1 day");
     }
     let bind = SocketAddr::from_str(&self.bind_address).context("invalid bind_address")?;
     if self.public_url_source == PublicUrlSource::Explicit {

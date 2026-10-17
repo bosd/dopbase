@@ -61,6 +61,9 @@ pub struct ChainVerifyReport {
   pub head_hash: Option<String>,
   /// Records with no chain position. Should stay at zero.
   pub unsequenced: u64,
+  /// Sequence number retention removed up to, when records were pruned. The
+  /// surviving records continue the chain after it.
+  pub pruned_seq: Option<i64>,
   pub broken: Option<ChainVerifyBreak>,
 }
 
@@ -72,6 +75,7 @@ impl From<crate::services::audit_chain::ChainReport> for ChainVerifyReport {
       head_seq: report.head_seq,
       head_hash: report.head_hash,
       unsequenced: report.unsequenced,
+      pruned_seq: report.pruned_seq,
       broken: report.broken.map(|chain_break| ChainVerifyBreak {
         seq: chain_break.seq,
         id: chain_break.id,

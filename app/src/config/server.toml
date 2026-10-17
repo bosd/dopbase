@@ -32,6 +32,15 @@
 # Environment: DOPBASE_SHUTDOWN_GRACE_SECONDS
 # shutdown_grace_seconds = 10
 
+# Days to keep audit records. Expired records are archived as JSON
+# lines to the audit-archive directory inside the data directory and
+# then deleted; audit verification continues from where they stopped,
+# so pruning does not read as tampering. Back up that directory with
+# the rest of your data: backups store the database only.
+# Accepts: 1 or more. Default: unset, the whole log is kept.
+# Environment: DOPBASE_AUDIT_RETENTION_DAYS
+# audit_retention_days = 365
+
 # Enable the web UI. The CLI and REST API remain available when disabled.
 # Accepts: true or false. Default: true.
 # Environment: DOPBASE_WEB_UI

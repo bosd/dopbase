@@ -576,7 +576,10 @@ values.
 The command requires an administrator account. It exits with code `0` when the
 chain is intact and `2` when it is broken, so monitoring can alert on the
 result, and `--json` prints the full report including the head sequence and
-hash for external anchoring. See
+hash for external anchoring. When
+[retention](/reference/audit-events#retention) has removed records,
+verification continues from the pruning anchor and reports
+`Pruned through: sequence N` instead of a gap. See
 [audit events](/reference/audit-events#integrity-and-verification) for what the
 chain does and does not prove.
 

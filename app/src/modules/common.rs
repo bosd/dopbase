@@ -165,7 +165,14 @@ pub async fn audit(
     &metadata,
     &created_at,
   )
-  .await
+  .await?;
+  // Retention runs in the caller's transaction, after the append, so it
+  // cannot remove the record being written and needs no second lock. A
+  // failure to prune must not fail the operation that was audited.
+  if let Err(error) = crate::services::audit_chain::prune_configured(connection).await {
+    tracing::warn!(%error, "audit retention could not be applied");
+  }
+  Ok(())
 }
 
 /// Record an audit event in its own committed transaction.

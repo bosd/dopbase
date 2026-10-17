@@ -269,3 +269,70 @@ async fn audit_export_writes_a_private_file_and_needs_force_to_replace_it() {
   assert_eq!(replaced["path"], path.to_str().unwrap());
   assert!(!std::fs::read_to_string(&path).unwrap().is_empty());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn audit_retention_archives_expired_records_and_verification_continues() {
+  use app::services::audit_chain::{self, Retention};
+  let fixture = Fixture::new().await;
+  fixture.environment().await;
+
+  // The log went quiet past the retention window: every record written so
+  // far is older than it.
+  let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM audit_events")
+    .fetch_one(fixture.state.db.pool())
+    .await
+    .unwrap();
+  sqlx::query("UPDATE audit_events SET created_at='2000-01-01T00:00:00+00:00'")
+    .execute(fixture.state.db.pool())
+    .await
+    .unwrap();
+
+  // The next audit write applies the configured retention.
+  audit_chain::configure_retention(Retention::new(
+    fixture.directory.path().join("audit-archive"),
+    30,
+  ));
+  fixture.run(&["project", "create", "second"]).await;
+
+  // The expired records are gone from the log and archived as JSON lines
+  // that keep every stored column, chain fields included.
+  let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM audit_events")
+    .fetch_one(fixture.state.db.pool())
+    .await
+    .unwrap();
+  assert_eq!(
+    remaining, 1,
+    "only the record that resumed the log survives"
+  );
+  let archive_dir = fixture.directory.path().join("audit-archive");
+  let mut archives = std::fs::read_dir(&archive_dir)
+    .unwrap()
+    .map(|entry| entry.unwrap().path())
+    .collect::<Vec<_>>();
+  archives.sort();
+  assert_eq!(archives.len(), 1, "{archives:?}");
+  let archived = std::fs::read_to_string(&archives[0]).unwrap();
+  let archived_records = archived
+    .lines()
+    .map(|line| serde_json::from_str::<Value>(line).unwrap())
+    .collect::<Vec<_>>();
+  assert_eq!(archived_records.len() as i64, before);
+  assert_eq!(archived_records[0]["seq"], json!(1));
+  assert!(archived_records[0]["action"].is_string());
+  assert!(archived_records[before as usize - 1]["recordHash"].is_string());
+
+  // Verification continues from the anchor instead of reporting a gap.
+  let human = fixture.run(&["audit", "verify"]).await;
+  assert!(
+    human.status.success(),
+    "{}",
+    String::from_utf8_lossy(&human.stderr)
+  );
+  let stdout = String::from_utf8_lossy(&human.stdout);
+  assert!(stdout.contains("intact"), "{stdout}");
+  assert!(stdout.contains("Pruned through"), "{stdout}");
+  let report = fixture.json(&["audit", "verify"]).await;
+  assert_eq!(report["ok"], json!(true));
+  assert_eq!(report["records"], json!(1));
+  assert_eq!(report["prunedSeq"], json!(before));
+}

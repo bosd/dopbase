@@ -112,10 +112,12 @@ and AI service accounts are refused with `403`.
 
 The response carries `ok`, the number of `records` checked before the first
 break, `headSeq` and `headHash` for external anchoring, `unsequenced` for
-records that sit outside the chain, and `broken` with the sequence number,
-record ID, and reason when something does not match. Records written before
-this release are sealed into the chain on the next startup, so `unsequenced`
-stays at zero.
+records that sit outside the chain, `prunedSeq` when
+[retention](/reference/audit-events#retention) removed records (the chain
+continues after it), and `broken` with the sequence number, record ID, and
+reason when something does not match. Records written before this release
+are sealed into the chain on the next startup, so `unsequenced` stays at
+zero.
 
 The chain columns are additive: the audit list keeps its shape and filters,
 and every item now carries `seq`, `prevHash`, and `recordHash`, so records

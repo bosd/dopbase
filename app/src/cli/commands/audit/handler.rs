@@ -226,5 +226,8 @@ fn print_report(report: &Value) {
   if unsequenced > 0 {
     fields.push(("Unsequenced records:", unsequenced.to_string()));
   }
+  if let Some(pruned) = report.get("prunedSeq").and_then(Value::as_i64) {
+    fields.push(("Pruned through:", format!("sequence {pruned}")));
+  }
   output::print_fields(&fields);
 }

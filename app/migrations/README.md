@@ -20,6 +20,7 @@ version. The current pre-release schema is assembled in this order:
 0013_runner_token_expiry.up.sql
 0014_secret_rotation.up.sql
 0015_audit_chain.up.sql
+0016_audit_chain_anchor.up.sql
 ```
 
 The up file applies the change. The down file removes only that version's
@@ -28,7 +29,9 @@ change and must be safe when versions are reverted in reverse order. Version
 expiry. Version 0014 adds the nullable previous-value columns used by secret
 rotation; secrets without a rotation keep them empty. Version 0015 adds the
 hash-chain columns on `audit_events`; records written before it are sealed
-during the next migration pass. Runtime startup applies
+during the next migration pass. Version 0016 adds the anchor retention
+leaves behind when it removes expired records, so verification continues
+where the pruned chain stops. Runtime startup applies
 up migrations only. Rollback is a maintenance and test
 operation, not a public Dopbase CLI command.
 

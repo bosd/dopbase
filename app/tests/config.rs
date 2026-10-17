@@ -427,6 +427,7 @@ fn uncomment_server_examples(reference: &str) -> String {
           "port",
           "public_url",
           "shutdown_grace_seconds",
+          "audit_retention_days",
           "docs",
           "web_ui",
           "provider",
@@ -494,6 +495,7 @@ fn generated_references_load_defaults_and_uncommented_server_examples() {
     app::constants::config::DEFAULT_PUBLIC_URL
   );
   assert_eq!(reloaded.shutdown_grace_seconds, 10);
+  assert_eq!(reloaded.audit_retention_days, Some(365));
   assert!(!reloaded.docs_enabled);
   assert!(reloaded.web_ui_enabled);
   assert_eq!(reloaded.master_key.provider, "file");
@@ -618,4 +620,70 @@ fn invalid_web_ui_settings_are_rejected() {
       ServerConfig::load_with_environment(&overrides, EnvironmentOverrides::default()).unwrap_err();
     assert!(format!("{error:#}").contains("failed to parse"));
   }
+}
+
+#[test]
+fn audit_retention_days_reads_from_file_and_environment() {
+  let directory = tempfile::TempDir::new().unwrap();
+  let data_dir = directory.path().join("data");
+  fs::create_dir_all(&data_dir).unwrap();
+  let config_path = data_dir.join(SERVER_CONFIG_FILENAME);
+  let overrides = ServerOverrides {
+    data_dir: Some(data_dir.clone()),
+    ..Default::default()
+  };
+
+  // Unset keeps the whole log.
+  assert_eq!(ServerConfig::default().audit_retention_days, None);
+
+  fs::write(&config_path, "audit_retention_days = 90\n").unwrap();
+  let from_file =
+    ServerConfig::load_with_environment(&overrides, EnvironmentOverrides::default()).unwrap();
+  assert_eq!(from_file.audit_retention_days, Some(90));
+
+  // The environment variable wins over the file.
+  let from_environment = ServerConfig::load_with_environment(
+    &overrides,
+    EnvironmentOverrides {
+      audit_retention_days: Some("30".into()),
+      ..Default::default()
+    },
+  )
+  .unwrap();
+  assert_eq!(from_environment.audit_retention_days, Some(30));
+
+  // A window of zero days would remove every record on the first write, so
+  // it is rejected as a misconfiguration rather than accepted as a policy.
+  fs::write(&config_path, "audit_retention_days = 0\n").unwrap();
+  let error =
+    ServerConfig::load_with_environment(&overrides, EnvironmentOverrides::default()).unwrap_err();
+  assert!(
+    format!("{error:#}").contains("audit_retention_days"),
+    "{error}"
+  );
+  fs::write(&config_path, "audit_retention_days = 90\n").unwrap();
+  let error = ServerConfig::load_with_environment(
+    &overrides,
+    EnvironmentOverrides {
+      audit_retention_days: Some("0".into()),
+      ..Default::default()
+    },
+  )
+  .unwrap_err();
+  assert!(
+    format!("{error:#}").contains("audit_retention_days"),
+    "{error}"
+  );
+  let error = ServerConfig::load_with_environment(
+    &overrides,
+    EnvironmentOverrides {
+      audit_retention_days: Some("soon".into()),
+      ..Default::default()
+    },
+  )
+  .unwrap_err();
+  assert!(
+    format!("{error:#}").contains("invalid DOPBASE_AUDIT_RETENTION_DAYS"),
+    "{error}"
+  );
 }
