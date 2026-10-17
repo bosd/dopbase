@@ -18,6 +18,7 @@ use crate::constants::config::{
   SERVER_HOST_PLACEHOLDER,
 };
 pub use crate::constants::config::{DEFAULT_BIND_ADDRESS, DEFAULT_PUBLIC_URL};
+use crate::services::oidc::TrustPolicy;
 
 pub fn validate_endpoint_transport(url: &Url) -> Result<()> {
   if !matches!(url.scheme(), "http" | "https") {
@@ -68,6 +69,9 @@ pub struct ServerConfig {
   #[serde(skip)]
   pub daemon_launch: Option<crate::daemon::LaunchDescriptor>,
   pub master_key: MasterKeyConfig,
+  /// Trusted OIDC identity providers whose assertions are accepted.
+  #[serde(skip)]
+  pub oidc: TrustPolicy,
   /// Records whether the public URL was configured or derived at startup.
   #[serde(skip)]
   pub public_url_source: PublicUrlSource,
@@ -108,6 +112,7 @@ struct ServerConfigFile {
   docs: Option<bool>,
   web_ui: Option<bool>,
   master_key: Option<MasterKeyConfigFile>,
+  oidc: Option<TrustPolicy>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -175,6 +180,7 @@ impl ServerConfig {
         provider: "file".into(),
         path: data_dir.join(MASTER_KEY_FILENAME),
       },
+      oidc: TrustPolicy::default(),
       data_dir,
       version: 1,
       bind_address: DEFAULT_BIND_ADDRESS.into(),
@@ -299,6 +305,9 @@ impl ServerConfig {
       if let Some(value) = master_key.path {
         self.master_key.path = value;
       }
+    }
+    if let Some(oidc) = file.oidc {
+      self.oidc = oidc;
     }
     Ok(())
   }
@@ -503,6 +512,10 @@ impl ServerConfig {
     if self.master_key.path.as_os_str().is_empty() {
       bail!("master_key.path is required");
     }
+    self
+      .oidc
+      .validate()
+      .context("invalid OIDC trust policy in server.toml")?;
     Ok(())
   }
 }
