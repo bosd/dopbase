@@ -52,6 +52,7 @@ The current pre-release schema is assembled in this order:
 20260906014116_service_accounts.up.sql
 20260906014117_agent_tokens.up.sql
 20260926085502_runner_token_expiry.up.sql
+20261017133051_oidc_login.up.sql
 20261023081254_audit_chain.up.sql
 20261023081357_audit_chain_anchor.up.sql
 20261023083943_audit_chain_integrity.up.sql
@@ -62,7 +63,8 @@ The current pre-release schema is assembled in this order:
 The up file applies the change. The down file removes only that version's
 change and must be safe when versions are reverted in reverse order.
 `runner_token_expiry` (formerly 0013) adds a nullable runner-token expiry
-column; existing tokens keep no expiry. `audit_chain` (formerly 0014) adds the
+column; existing tokens keep no expiry. `oidc_login` adds the OIDC identity link and the pending browser sign-in
+tables. `audit_chain` (formerly 0014) adds the
 hash-chain columns on `audit_events`. `audit_chain_anchor` (formerly 0015) adds
 the anchor retention leaves behind when it removes expired records, so
 verification continues where the pruned chain stops. `audit_chain_integrity`
