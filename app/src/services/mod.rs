@@ -1,4 +1,5 @@
 pub mod cache;
 pub mod crypto;
 pub mod db;
+pub mod rotation;
 pub mod token;

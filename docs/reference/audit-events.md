@@ -9,18 +9,23 @@ Audit records answer who performed a sensitive action, where it happened, and wh
 
 ## Audit events in {{version}}
 
-| Area                  | Events                                                                                                                                              |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secrets               | `secret.created`, `secret.updated`, `secret.deleted`, `secret.revealed`, `secret.imported`, `secret.exported`, `secret.runtime_accessed`            |
-| Projects              | `project.created`, `project.renamed`, `project.deleted`, `project.initialized`                                                                      |
-| Environments          | `environment.created`, `environment.renamed`, `environment.deleted`                                                                                 |
-| Runner tokens         | `token.created`, `token.revoked`                                                                                                                    |
-| Authentication        | `login.succeeded`, `login.failed`, `logout.succeeded`                                                                                               |
-| Administrator & users | `admin.bootstrapped`, `admin.created`, `admin.updated`, `admin.deleted`, `admin.reauthenticated`, `admin.password_changed`                          |
-| AI service accounts   | `service_account.created`, `service_account.deleted`, `service_account.token_created`, `service_account.token_revoked`                              |
-| Backups               | `backup.created`, `backup.downloaded`, `backup.uploaded`, `backup.restored`, `backup.deleted`, `master_key.downloaded`, `backup.restored_bootstrap` |
+| Area                  | Events                                                                                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secrets               | `secret.created`, `secret.updated`, `secret.deleted`, `secret.revealed`, `secret.rotated`, `secret.promoted`, `secret.retired`, `secret.imported`, `secret.exported`, `secret.runtime_accessed` |
+| Projects              | `project.created`, `project.renamed`, `project.deleted`, `project.initialized`                                                                                                                  |
+| Environments          | `environment.created`, `environment.renamed`, `environment.deleted`                                                                                                                             |
+| Runner tokens         | `token.created`, `token.revoked`                                                                                                                                                                |
+| Authentication        | `login.succeeded`, `login.failed`, `logout.succeeded`                                                                                                                                           |
+| Administrator & users | `admin.bootstrapped`, `admin.created`, `admin.updated`, `admin.deleted`, `admin.reauthenticated`, `admin.password_changed`                                                                      |
+| AI service accounts   | `service_account.created`, `service_account.deleted`, `service_account.token_created`, `service_account.token_revoked`                                                                          |
+| Backups               | `backup.created`, `backup.downloaded`, `backup.uploaded`, `backup.restored`, `backup.deleted`, `master_key.downloaded`, `backup.restored_bootstrap`                                             |
 
 The API schema defines the event names used by this release.
+
+Rotations record `secret.rotated` with the new version, the version it replaced,
+and the retire deadline. Rolling a rotation back records `secret.promoted`, and
+ending a grace period records `secret.retired`. Rotation records name versions
+and deadlines, never either value.
 
 ## Record contents
 
