@@ -17,6 +17,7 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use regex::Regex;
 use sha2::{Digest, Sha256};
+use sqlx::Connection;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::OnceLock;
 /// Who performed the operation, in the shape the audit log stores.
@@ -108,6 +109,27 @@ async fn retire(
   }
   Ok(())
 }
+/// Retires expired previous values in an immediate transaction of its own.
+///
+/// Read paths use this instead of [`retire`] directly: a pooled connection is
+/// in autocommit, so it does not hold SQLite's write lock, and the
+/// `secret.retired` append reads the chain head before it inserts. Two
+/// concurrent reads would otherwise claim the same sequence number.
+async fn retire_committed(
+  conn: &mut sqlx::SqliteConnection,
+  actor: Actor<'_>,
+  project_id: &str,
+  environment_id: &str,
+  retired: &[Retired],
+) -> Result<(), HttpError> {
+  if retired.is_empty() {
+    return Ok(());
+  }
+  let mut tx = conn.begin_with("BEGIN IMMEDIATE").await?;
+  retire(&mut tx, actor, project_id, environment_id, retired).await?;
+  tx.commit().await?;
+  Ok(())
+}
 /// Reads one secret and retires a previous value whose grace period ended.
 async fn load(
   conn: &mut sqlx::SqliteConnection,
@@ -187,7 +209,7 @@ pub async fn list(
   let rows: Vec<repository::SecretMetaRow> = repository::list(&mut *conn, id).await?;
   let now = Utc::now();
   let retired = retired(&rows, &now);
-  retire(&mut conn, actor(identity), &env.project_id, id, &retired).await?;
+  retire_committed(&mut conn, actor(identity), &env.project_id, id, &retired).await?;
   Ok(rows.iter().map(|row| row.metadata(&now)).collect())
 }
 pub async fn get(
@@ -199,10 +221,15 @@ pub async fn get(
   require_metadata_access(identity)?;
   let env = environment(state, id).await?;
   let mut conn = state.db.pool().acquire().await?;
-  load(&mut conn, actor(identity), &env.project_id, id, key)
+  let row = repository::find(&mut *conn, id, key)
     .await?
-    .map(|row| row.metadata(&Utc::now()))
-    .ok_or_else(|| HttpError::not_found("SECRET_NOT_FOUND", "The requested secret was not found."))
+    .ok_or_else(|| {
+      HttpError::not_found("SECRET_NOT_FOUND", "The requested secret was not found.")
+    })?;
+  let now = Utc::now();
+  let retired = retired(std::slice::from_ref(&row), &now);
+  retire_committed(&mut conn, actor(identity), &env.project_id, id, &retired).await?;
+  Ok(row.metadata(&now))
 }
 pub async fn set(
   state: &AppState,
@@ -457,15 +484,20 @@ pub async fn reveal(
   let (admin_id, email) = require_project_manager(identity)?;
   let env = environment(state, id).await?;
   let mut conn = state.db.pool().acquire().await?;
-  let row = load(
+  let row = repository::find(&mut *conn, id, key)
+    .await?
+    .ok_or_else(|| {
+      HttpError::not_found("SECRET_NOT_FOUND", "The requested secret was not found.")
+    })?;
+  let retired = retired(std::slice::from_ref(&row), &Utc::now());
+  retire_committed(
     &mut conn,
     ("admin", Some(admin_id), Some(email)),
     &env.project_id,
     id,
-    key,
+    &retired,
   )
-  .await?
-  .ok_or_else(|| HttpError::not_found("SECRET_NOT_FOUND", "The requested secret was not found."))?;
+  .await?;
   let value = decrypt_row(state, id, &row)?;
   // Verification tooling can read both values while the grace period runs, so
   // a rotation can be checked before the old credential is retired.
@@ -829,11 +861,14 @@ pub async fn runtime(
   let mut conn = state.db.pool().acquire().await?;
   // Runtime reads keep returning the current value only. Consumers pick up a
   // rotation at their own pace by reading the same key again.
-  let rows = load_all(
+  let rows = repository::rows(&mut *conn, id).await?;
+  let retired = retired(&rows, &Utc::now());
+  retire_committed(
     &mut conn,
     (actor_type, Some(actor_id), actor_label),
     &env.project_id,
     id,
+    &retired,
   )
   .await?;
   let entries = rows
