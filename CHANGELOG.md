@@ -129,6 +129,14 @@ History dialog restores one when a change goes wrong.
   unknown keys, and untrusted issuers. This is the shared foundation for OIDC
   sign-in and workload authentication.
 
+- Administrators can sign in to the Admin UI through an OIDC provider with an
+  optional `[oidc.login]` block. The authorization code flow uses PKCE. The
+  first sign-in links a provider identity to an existing account by verified
+  email, later sign-ins use the stored issuer and subject, and the configured
+  group mapping sets the account role. Unknown emails, unmapped groups, and
+  unverified emails are refused. Sign-in and failed attempts are audited. Local
+  password login remains available.
+
 ### Changed
 
 - Database migrations use UTC timestamp versions
