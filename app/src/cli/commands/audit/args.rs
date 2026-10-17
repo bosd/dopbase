@@ -58,7 +58,7 @@ Examples:
   dopbase audit verify
   dopbase --json audit verify
 
-Requires an administrator account. Verification walks the records in
+Requires an administrator or auditor account. Verification walks the records in
 sequence order and stops at the first break, reporting how many records
 were checked before it. No secret values are read or printed.
 ";
@@ -68,7 +68,7 @@ Examples:
   dopbase audit export --action secret.updated --limit 500
   dopbase audit export --project production | jq 'select(.resourceType==\"secret\")'
 
-Requires an administrator account. Each line is one JSON object exactly as
+Requires an administrator or auditor account. Each line is one JSON object exactly as
 the audit list API returns it, including the chain fields seq, prevHash and
 recordHash, so an exported copy can be checked and anchored outside Dopbase.
 The whole record set is exported unless a filter or --limit applies, and no

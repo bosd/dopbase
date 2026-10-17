@@ -38,6 +38,7 @@ fn parse_role(value: &str) -> Result<AdminRole, HttpError> {
     "root" => Ok(AdminRole::Root),
     "admin" => Ok(AdminRole::Admin),
     "member" => Ok(AdminRole::Member),
+    "auditor" => Ok(AdminRole::Auditor),
     _ => Err(HttpError::internal()),
   }
 }
@@ -48,7 +49,7 @@ pub async fn list(
 ) -> Result<Vec<UserResponse>, HttpError> {
   require_admin_browser(identity)?;
   let rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
-    "SELECT id,email,role,created_at,updated_at FROM admins ORDER BY CASE role WHEN 'root' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, email",
+    "SELECT id,email,role,created_at,updated_at FROM admins ORDER BY CASE role WHEN 'root' THEN 0 WHEN 'admin' THEN 1 WHEN 'auditor' THEN 2 ELSE 3 END, email",
   ).fetch_all(state.db.pool()).await?;
   rows
     .into_iter()

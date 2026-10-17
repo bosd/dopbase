@@ -65,6 +65,7 @@ pub async fn login(
     "root" => AdminRole::Root,
     "admin" => AdminRole::Admin,
     "member" => AdminRole::Member,
+    "auditor" => AdminRole::Auditor,
     _ => return Err(HttpError::internal()),
   };
   let raw = token::generate(ADMIN_SESSION_PREFIX).map_err(|_| HttpError::internal())?;

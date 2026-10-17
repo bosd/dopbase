@@ -21,6 +21,7 @@ version. The current pre-release schema is assembled in this order:
 0014_secret_rotation.up.sql
 0015_audit_chain.up.sql
 0016_audit_chain_anchor.up.sql
+0017_admin_role_auditor.up.sql
 ```
 
 The up file applies the change. The down file removes only that version's
@@ -31,7 +32,10 @@ rotation; secrets without a rotation keep them empty. Version 0015 adds the
 hash-chain columns on `audit_events`; records written before it are sealed
 during the next migration pass. Version 0016 adds the anchor retention
 leaves behind when it removes expired records, so verification continues
-where the pruned chain stops. Runtime startup applies
+where the pruned chain stops. Version 0017 rebuilds `admins` with the
+`auditor` role in its check constraint and rebuilds `sessions` next to it so
+its foreign key follows the new table without losing sessions; rolling it
+back removes auditor accounts. Runtime startup applies
 up migrations only. Rollback is a maintenance and test
 operation, not a public Dopbase CLI command.
 

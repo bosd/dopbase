@@ -1,6 +1,6 @@
 use super::{model::*, repository};
 use crate::{
-  constants::errors::REQUEST_INVALID, extractors::require_admin, http::HttpError,
+  constants::errors::REQUEST_INVALID, extractors::require_audit_reader, http::HttpError,
   models::AuthIdentity, state::AppState,
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -20,7 +20,7 @@ pub async fn list(
   identity: &AuthIdentity,
   query: AuditQuery,
 ) -> Result<AuditPage, HttpError> {
-  require_admin(identity)?;
+  require_audit_reader(identity)?;
   let limit = query.limit.unwrap_or(50).clamp(1, 200);
   let cursor = query.cursor.as_deref().map(decode).transpose()?;
   let mut items = repository::list(
@@ -49,7 +49,7 @@ pub async fn verify(
   state: &AppState,
   identity: &AuthIdentity,
 ) -> Result<ChainVerifyReport, HttpError> {
-  require_admin(identity)?;
+  require_audit_reader(identity)?;
   let report = crate::services::audit_chain::verify(state.db.pool()).await?;
   Ok(report.into())
 }

@@ -1,6 +1,6 @@
 ---
 title: "Identity and tokens"
-description: "Root, admin, member, and AI-agent access, human sessions, and environment-scoped runner tokens."
+description: "Root, admin, member, auditor, and AI-agent access, human sessions, and environment-scoped runner tokens."
 ---
 
 # Identity and tokens
@@ -10,9 +10,12 @@ Dopbase needs identities for people and for software.
 ## Human users
 
 The instance has one protected human `root` account, created during first-run
-setup, plus `admin` and `member` accounts. All three human roles have full
-project, environment, secret, and runner-token access in the Admin UI and
-existing human CLI operations. Root and admin manage human and AI accounts.
+setup, plus `admin`, `member`, and `auditor` accounts. `root`, `admin`, and
+`member` have full project, environment, secret, and runner-token access in
+the Admin UI and existing human CLI operations. `auditor` is read-only on the
+audit log: it can read and export audit events but is refused on every other
+surface, including secret metadata, so a reviewer never holds secret access.
+Root and admin manage human and AI accounts.
 Root alone manages full-instance backups and factory reset. Other users cannot change or delete the root account.
 
 Passwords are hashed with Argon2id. Browser sessions have an eight-hour idle
@@ -92,19 +95,20 @@ practical workflow and [users and AI agents](/ui/users) for account management.
 
 ## Permission model
 
-The four roles are static. All projects are shared across the instance. No
+The five roles are static. All projects are shared across the instance. No
 user-to-project assignments, custom roles, or configurable permissions exist.
 Runner tokens remain a separate environment-scoped credential type.
 
-| Operation                                                                  | Root | Admin | Member | AI agent |
-| -------------------------------------------------------------------------- | ---- | ----- | ------ | -------- |
-| Read project/environment and secret metadata                               | Yes  | Yes   | Yes    | Yes      |
-| Manage projects, environments, secrets, imports/exports, and runner tokens | Yes  | Yes   | Yes    | No       |
-| Manage non-root human users and AI accounts                                | Yes  | Yes   | No     | No       |
-| Read audit events, including filtered history                              | Yes  | Yes   | No     | No       |
-| View instance status                                                       | Yes  | Yes   | Yes    | Yes      |
-| Full-instance backups and master-key download                              | Yes  | No    | No     | No       |
-| Factory reset in the Admin UI or offline host CLI                          | Yes  | No    | No     | No       |
+| Operation                                                                  | Root | Admin | Member | Auditor | AI agent |
+| -------------------------------------------------------------------------- | ---- | ----- | ------ | ------- | -------- |
+| Read project/environment and secret metadata                               | Yes  | Yes   | Yes    | No      | Yes      |
+| Manage projects, environments, secrets, imports/exports, and runner tokens | Yes  | Yes   | Yes    | No      | No       |
+| Manage non-root human users and AI accounts                                | Yes  | Yes   | No     | No      | No       |
+| Read audit events, including filtered history                              | Yes  | Yes   | No     | Yes     | No       |
+| Export audit events from the CLI                                           | Yes  | Yes   | No     | Yes     | No       |
+| View instance status                                                       | Yes  | Yes   | Yes    | No      | Yes      |
+| Full-instance backups and master-key download                              | Yes  | No    | No     | No      | No       |
+| Factory reset in the Admin UI or offline host CLI                          | Yes  | No    | No     | No      | No       |
 
 No human can delete their own account or change their own role. An admin can
 manage another admin, but cannot modify root. Root is created only during first-run setup. Root changes its password through Account settings.

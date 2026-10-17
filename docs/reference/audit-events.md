@@ -7,6 +7,11 @@ description: "See which sensitive actions Dopbase records, who performed them, w
 
 Audit records answer who performed a sensitive action, where it happened, and when. They describe the action without storing the secret value involved.
 
+Administrators and auditors read them through the API and
+`dopbase audit export`. The read-only `auditor` role exists for that review:
+it can read and export the log but is refused on every other surface, so a
+reviewer never holds secret access.
+
 ## Audit events in {{version}}
 
 | Area                  | Events                                                                                                                                                                                          |
@@ -38,7 +43,7 @@ modifying, removing, or inserting a record leaves a trace at that point.
   is broken. `--json` prints the head sequence and hash, which an operator can
   anchor in external, write-once storage.
 - `GET /api/v1/audit-events/verify` serves the same check to scripts. It is
-  restricted to administrators, like reading the log itself.
+  restricted to administrators and auditors, like reading the log itself.
 - Records written before the chain existed are sealed during the next startup,
   and a backup restored from an older release is sealed during the restore, so
   verification covers the whole log rather than only new records.

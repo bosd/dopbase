@@ -22,7 +22,7 @@ use axum::extract::{Query, State};
     (status = 200, description = "Audit events fetched", body = inline(HttpResponseFormat<AuditPage>)),
     (status = 400, description = "The pagination cursor is invalid", body = crate::http::ErrorBody),
     (status = 401, description = "Authentication is required", body = crate::http::ErrorBody),
-    (status = 403, description = "Only administrators may read audit events", body = crate::http::ErrorBody),
+    (status = 403, description = "Only administrators and auditors may read audit events", body = crate::http::ErrorBody),
   ),
 )]
 pub async fn list(
@@ -51,7 +51,7 @@ pub async fn list(
   responses(
     (status = 200, description = "Audit chain verified", body = inline(HttpResponseFormat<ChainVerifyReport>)),
     (status = 401, description = "Authentication is required", body = crate::http::ErrorBody),
-    (status = 403, description = "Only administrators may verify the audit chain", body = crate::http::ErrorBody),
+    (status = 403, description = "Only administrators and auditors may verify the audit chain", body = crate::http::ErrorBody),
   ),
 )]
 pub async fn verify(

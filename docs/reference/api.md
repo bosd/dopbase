@@ -107,8 +107,8 @@ runtime consumers and older clients are unaffected.
 
 `GET /api/v1/audit-events/verify` walks the audit log in sequence order,
 recomputes every record's hash from its stored contents, and reports the first
-inconsistency. Administrators only, like reading the audit log; runner tokens
-and AI service accounts are refused with `403`.
+inconsistency. Administrators and auditors only, like reading the audit log;
+runner tokens, AI service accounts, and members are refused with `403`.
 
 The response carries `ok`, the number of `records` checked before the first
 break, `headSeq` and `headHash` for external anchoring, `unsequenced` for

@@ -35,6 +35,7 @@ fn parse_role(value: &str) -> Result<AdminRole, HttpError> {
     "root" => Ok(AdminRole::Root),
     "admin" => Ok(AdminRole::Admin),
     "member" => Ok(AdminRole::Member),
+    "auditor" => Ok(AdminRole::Auditor),
     "ai_agent" => Ok(AdminRole::AiAgent),
     _ => Err(HttpError::unauthorized(
       AUTHENTICATION_INVALID,
@@ -195,6 +196,24 @@ pub fn require_admin(identity: &AuthIdentity) -> Result<(&str, &str), HttpError>
   }
 }
 
+/// Who may read the audit log: administrators, and the read-only auditor
+/// role that exists for it. Every other check keeps auditors out, so this
+/// is the whole surface their account can reach.
+pub fn require_audit_reader(identity: &AuthIdentity) -> Result<(&str, &str), HttpError> {
+  match identity {
+    AuthIdentity::Admin {
+      admin_id,
+      email,
+      role: AdminRole::Root | AdminRole::Admin | AdminRole::Auditor,
+      ..
+    } => Ok((admin_id, email)),
+    _ => Err(HttpError::forbidden(
+      AUTHORIZATION_DENIED,
+      "This operation requires an administrator or auditor account.",
+    )),
+  }
+}
+
 pub fn require_project_manager(identity: &AuthIdentity) -> Result<(&str, &str), HttpError> {
   match identity {
     AuthIdentity::Admin {
@@ -212,6 +231,13 @@ pub fn require_project_manager(identity: &AuthIdentity) -> Result<(&str, &str), 
 
 pub fn require_read_access(identity: &AuthIdentity) -> Result<(), HttpError> {
   match identity {
+    AuthIdentity::Admin {
+      role: AdminRole::Auditor,
+      ..
+    } => Err(HttpError::forbidden(
+      AUTHORIZATION_DENIED,
+      "Auditor accounts can only read the audit log.",
+    )),
     AuthIdentity::Admin { .. } | AuthIdentity::ServiceAccount { .. } => Ok(()),
     AuthIdentity::Runner { .. } => Err(HttpError::forbidden(
       AUTHORIZATION_DENIED,
@@ -222,6 +248,13 @@ pub fn require_read_access(identity: &AuthIdentity) -> Result<(), HttpError> {
 
 pub fn require_metadata_access(identity: &AuthIdentity) -> Result<(), HttpError> {
   match identity {
+    AuthIdentity::Admin {
+      role: AdminRole::Auditor,
+      ..
+    } => Err(HttpError::forbidden(
+      AUTHORIZATION_DENIED,
+      "Auditor accounts can only read the audit log.",
+    )),
     AuthIdentity::Admin { .. } | AuthIdentity::ServiceAccount { .. } => Ok(()),
     _ => Err(HttpError::forbidden(
       AUTHORIZATION_DENIED,

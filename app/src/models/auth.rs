@@ -31,6 +31,8 @@ pub enum AdminRole {
   Root,
   Admin,
   Member,
+  /// Read-only on the audit log. Every other surface keeps auditors out.
+  Auditor,
   AiAgent,
 }
 
@@ -40,6 +42,7 @@ impl AdminRole {
       Self::Root => "root",
       Self::Admin => "admin",
       Self::Member => "member",
+      Self::Auditor => "auditor",
       Self::AiAgent => "ai_agent",
     }
   }

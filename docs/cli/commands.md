@@ -552,9 +552,9 @@ values.
 ## Audit commands
 
 The audit log answers who performed a sensitive action, where it happened, and
-when. Administrators review it on the Audit page in the Admin UI, verify its
-integrity from the terminal, and export it as JSON lines for external,
-write-once storage:
+when. Administrators review it on the Audit page in the Admin UI;
+administrators and auditors verify its integrity from the terminal and
+export it as JSON lines for external, write-once storage:
 
 ```bash
 dopbase audit verify
@@ -573,7 +573,7 @@ the log. Verification walks the records in sequence order, stops at the first
 break, and reports how many records were checked before it. It reads no secret
 values.
 
-The command requires an administrator account. It exits with code `0` when the
+The command requires an administrator or auditor account. It exits with code `0` when the
 chain is intact and `2` when it is broken, so monitoring can alert on the
 result, and `--json` prints the full report including the head sequence and
 hash for external anchoring. When
@@ -606,7 +606,7 @@ dopbase audit export --project production --environment production/main
 | `--force`                         | Replace an existing output file                             |
 
 Without filters the whole log is exported by following pagination to the end.
-Export requires an administrator account, reads no secret values, and leaves
+Export requires an administrator or auditor account, reads no secret values, and leaves
 standard output as raw JSON lines in every mode so it can be piped directly;
 with `--output` and `--json` the summary is printed as
 `{"exported":N,"path":"FILE"}` instead.

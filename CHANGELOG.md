@@ -8,8 +8,9 @@ Dopbase 0.1.10 adds overlapping secret rotation. A rotated secret keeps the
 value it replaced valid for a grace period, so consumers pick up the new
 credential at their own pace instead of at a coordinated cutover. The audit log
 becomes tamper-evident: every record joins a hash chain that `dopbase audit
-verify` checks, `dopbase audit export` ships the log as JSON lines, and a
-configurable retention archives expired records before deleting them.
+verify` checks, `dopbase audit export` ships the log as JSON lines, a
+configurable retention archives expired records before deleting them, and a
+read-only `auditor` role reviews all of it without secret access.
 
 ### Added
 
@@ -82,6 +83,16 @@ configurable retention archives expired records before deleting them.
   the oldest contiguous run of records is removed. Retention applies at
   startup and on each audit write, so no scheduler is involved. Back up
   `audit-archive/` separately: snapshots store the database only.
+
+- A read-only `auditor` role reviews the audit log without any access to
+  secrets. `dopbase audit verify` and `dopbase audit export` accept it, and
+  `GET /api/v1/audit-events` serves it exactly as for administrators, while
+  every other surface (secret metadata, project data, runtime values,
+  imports and exports, account and instance administration) refuses it with
+  `403`. Auditor accounts are created like any other human account with
+  `POST /api/v1/users` and `"role": "auditor"`; the migration that adds the
+  role rebuilds `admins` alongside `sessions`, so existing sessions keep
+  working.
 
 ## 0.1.9 - 2026-10-07
 
