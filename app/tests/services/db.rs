@@ -71,11 +71,12 @@ async fn migrations_apply_rollback_and_reapply() {
     "service_accounts",
     "agent_tokens",
   ];
-  const INDEXES: [&str; 10] = [
+  const INDEXES: [&str; 11] = [
     "sessions_token_hash_idx",
     "runner_tokens_token_hash_idx",
     "audit_events_created_idx",
     "audit_events_action_idx",
+    "audit_events_seq_idx",
     "sessions_revoked_retention_idx",
     "sessions_idle_retention_idx",
     "sessions_absolute_retention_idx",
@@ -101,6 +102,15 @@ async fn migrations_apply_rollback_and_reapply() {
   .await
   .unwrap();
   assert_eq!(expiry_column, "expires_at");
+  for column in ["seq", "prev_hash", "record_hash"] {
+    let chain_column: String =
+      sqlx::query_scalar("SELECT name FROM pragma_table_info('audit_events') WHERE name=?")
+        .bind(column)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(chain_column, column);
+  }
 
   MIGRATOR.undo(db.pool(), 0).await.unwrap();
   assert_schema_objects(&db, "table", &TABLES, false).await;

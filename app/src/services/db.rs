@@ -54,8 +54,20 @@ impl DbClient {
   }
 
   /// Run the migrations embedded in the Dopbase executable.
+  ///
+  /// Also seals audit records written before the hash chain existed, so a
+  /// database restored from an older backup verifies from its first record.
   pub async fn migrate(&self) -> Result<()> {
     MIGRATOR.run(&self.pool).await?;
+    let sealed = crate::services::audit_chain::backfill(&self.pool)
+      .await
+      .context("failed to seal pre-existing audit records")?;
+    if sealed > 0 {
+      tracing::info!(
+        sealed,
+        "sealed pre-existing audit records into the hash chain"
+      );
+    }
     Ok(())
   }
 

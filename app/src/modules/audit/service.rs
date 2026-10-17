@@ -43,3 +43,13 @@ pub async fn list(
   };
   Ok(AuditPage { items, next_cursor })
 }
+
+/// Recompute every audit record's hash in sequence order.
+pub async fn verify(
+  state: &AppState,
+  identity: &AuthIdentity,
+) -> Result<ChainVerifyReport, HttpError> {
+  require_admin(identity)?;
+  let report = crate::services::audit_chain::verify(state.db.pool()).await?;
+  Ok(report.into())
+}

@@ -7,8 +7,13 @@ pub mod model;
 mod repository;
 pub mod service;
 pub fn routes() -> Router<AppState> {
-  Router::new().route(
-    crate::constants::api::audit::COLLECTION,
-    get(controller::list),
-  )
+  Router::new()
+    .route(
+      crate::constants::api::audit::COLLECTION,
+      get(controller::list),
+    )
+    .route(
+      crate::constants::api::audit::VERIFY,
+      get(controller::verify),
+    )
 }

@@ -41,7 +41,7 @@ pub async fn login(
   };
   if !valid {
     state.rate_limiter.failure(&limit_key).await;
-    let _ = common::audit(
+    let _ = common::audit_standalone(
       state.db.pool(),
       "anonymous",
       None,
@@ -98,7 +98,7 @@ pub async fn login(
     .await?;
   sqlx::query("INSERT INTO sessions(id,admin_id,kind,token_hash,csrf_hash,created_at,last_used_at,recent_auth_at,idle_expires_at,absolute_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(&session_id).bind(&admin_id).bind(request.session_kind.as_str()).bind(token::hash(&raw)).bind(csrf.as_ref().map(|v|token::hash(v))).bind(now.to_rfc3339()).bind(now.to_rfc3339()).bind(now.to_rfc3339()).bind(idle.to_rfc3339()).bind(absolute.to_rfc3339()).execute(&mut *tx).await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(&admin_id),
     Some(&email),
@@ -171,7 +171,7 @@ pub async fn logout(
     .execute(&mut *tx)
     .await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -224,7 +224,7 @@ pub async fn reauthenticate(
     .execute(&mut *tx)
     .await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -281,7 +281,7 @@ pub async fn change_password(
     .execute(&mut *tx)
     .await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),

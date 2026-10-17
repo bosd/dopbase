@@ -1,4 +1,5 @@
 mod admin;
+mod audit;
 mod auth;
 mod backup;
 mod cache;

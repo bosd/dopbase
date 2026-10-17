@@ -74,7 +74,7 @@ pub(crate) async fn create_root(
   )
   .await?;
   common::audit(
-    &mut **tx,
+    &mut *tx,
     "admin",
     Some(&admin_id),
     Some(&credentials.email),
@@ -338,7 +338,7 @@ pub async fn restore_bootstrap(
   .await?;
 
   // Audit event for bootstrap restore
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "bootstrap",
     None,

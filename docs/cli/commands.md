@@ -549,6 +549,34 @@ assigned environment. It cannot modify secrets or access another environment.
 Export audit entries identify the runner token and secret count without storing
 values.
 
+## Audit commands
+
+The audit log answers who performed a sensitive action, where it happened, and
+when. Administrators review it on the Audit page in the Admin UI, and verify
+its integrity from the terminal:
+
+```bash
+dopbase audit verify
+dopbase --json audit verify
+```
+
+| Command                | Purpose                              |
+| ---------------------- | ------------------------------------ |
+| `dopbase audit verify` | Recompute the audit log's hash chain |
+
+Every audit record stores the hash of the record before it, so a record that
+was modified, removed, or inserted after the fact stands out at that point in
+the log. Verification walks the records in sequence order, stops at the first
+break, and reports how many records were checked before it. It reads no secret
+values.
+
+The command requires an administrator account. It exits with code `0` when the
+chain is intact and `2` when it is broken, so monitoring can alert on the
+result, and `--json` prints the full report including the head sequence and
+hash for external anchoring. See
+[audit events](/reference/audit-events#integrity-and-verification) for what the
+chain does and does not prove.
+
 ## Run a process
 
 Pass the environment directly:

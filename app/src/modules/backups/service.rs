@@ -197,7 +197,7 @@ pub async fn create(
   let created_at = Utc::now().to_rfc3339();
 
   // Audit
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),
@@ -238,7 +238,7 @@ pub async fn read_for_download(
     .map_err(|_| HttpError::internal())?
     .len();
 
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),
@@ -474,7 +474,7 @@ pub async fn upload(
   let size = final_bytes.len() as u64;
   let created_at = Utc::now().to_rfc3339();
 
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),
@@ -731,6 +731,11 @@ pub async fn restore_database_from_archive(
     sqlx::query("INSERT INTO runner_tokens SELECT * FROM backup_db.runner_tokens").execute(&mut *tx).await?;
     sqlx::query("INSERT INTO audit_events SELECT * FROM backup_db.audit_events").execute(&mut *tx).await?;
 
+    // Archives created before the audit chain existed carry records without
+    // chain columns. Seal them here, before the restore appends its own
+    // record, so the restored log verifies from its first entry.
+    crate::services::audit_chain::backfill_connection(&mut tx).await?;
+
     let mut effective_admin_id = preserve_admin.map(|(id, _, _)| id.to_string());
 
     // Re-preserve current admin and session if requested
@@ -764,7 +769,7 @@ pub async fn restore_database_from_archive(
     if let Some((_, email, _)) = preserve_admin {
       let key_str = audit_key.unwrap_or("unknown");
       common::audit(
-        &mut *tx,
+        &mut tx,
         "admin",
         effective_admin_id.as_deref(),
         Some(email),
@@ -839,7 +844,7 @@ pub async fn delete(
     HttpError::internal()
   })?;
 
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),

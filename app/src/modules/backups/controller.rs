@@ -129,7 +129,7 @@ pub async fn download_master_key(
   let (admin_id, email) = extractors::require_root(&identity)?;
   require_recent_browser_auth(&identity)?;
   let key_bytes = state.crypto.master_key_bytes();
-  let _ = common::audit(
+  let _ = common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),

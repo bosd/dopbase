@@ -6,7 +6,9 @@ All notable changes to Dopbase are documented in this file.
 
 Dopbase 0.1.10 adds overlapping secret rotation. A rotated secret keeps the
 value it replaced valid for a grace period, so consumers pick up the new
-credential at their own pace instead of at a coordinated cutover.
+credential at their own pace instead of at a coordinated cutover. The audit log
+becomes tamper-evident: every record joins a hash chain that `dopbase audit
+verify` checks.
 
 ### Added
 
@@ -42,6 +44,22 @@ credential at their own pace instead of at a coordinated cutover.
   `includePrevious` query parameter on the reveal endpoint. The migration adds
   nullable previous-value columns to `secrets`; existing secrets keep no
   previous value.
+
+- The audit log is now a hash chain. Every audit record stores its position,
+  the hash of the record before it, and the hash of its own contents, so a
+  record that was modified, removed, or inserted after the fact stands out at
+  that point in the chain. `dopbase audit verify` recomputes every hash in
+  sequence order, stops at the first break, and exits with code `0` when the
+  chain is intact and `2` when it is broken; `--json` prints the full report,
+  including the head sequence and hash for external anchoring.
+  `GET /api/v1/audit-events/verify` serves the same check to scripts and is
+  restricted to administrators, like the audit log itself.
+
+  Records written before this release are sealed into the chain during the
+  next startup, and a backup restored from an older release is sealed during
+  the restore, so verification covers the whole log. The chain columns are
+  additive: existing audit endpoints, filters, and clients keep their shape,
+  and verification reads no secret values.
 
 ## 0.1.9 - 2026-10-07
 

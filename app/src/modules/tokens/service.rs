@@ -72,7 +72,7 @@ pub async fn create(
     return Err(HttpError::from(error));
   }
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -129,7 +129,7 @@ pub async fn revoke(
     ));
   }
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),

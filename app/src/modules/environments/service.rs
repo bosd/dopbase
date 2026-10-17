@@ -104,7 +104,7 @@ pub async fn create(
   let mut tx = state.db.pool().begin_with("BEGIN IMMEDIATE").await?;
   let id = insert_generated(&mut tx, &project.id, &request.name, &now).await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -143,7 +143,7 @@ pub async fn rename(
     ));
   }
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -185,7 +185,7 @@ pub async fn delete(
     ));
   }
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),

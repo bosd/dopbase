@@ -5,6 +5,7 @@
 //! the small set of helpers used outside their owning module.
 
 pub mod admin;
+pub mod audit;
 pub mod auth;
 pub mod backup;
 pub mod cache;
@@ -96,6 +97,7 @@ async fn execute_client(
     Command::Project { command } => project::execute(command, server, json_output).await,
     Command::Env { command } => environment::execute(command, server, json_output).await,
     Command::Secret { command } => secret::execute(command, server, json_output).await,
+    Command::Audit { command } => audit::execute(command, server, json_output).await,
     Command::Import(args) => import::execute(server, args, json_output).await,
     Command::Export(args) => export::execute(server, args, json_output).await,
     Command::Token { command } => token::execute(command, server, json_output).await,

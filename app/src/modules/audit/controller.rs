@@ -35,3 +35,31 @@ pub async fn list(
     "AUDIT_EVENTS_FETCHED",
   ))
 }
+
+/// Verify the audit hash chain
+///
+/// Walks every audit record in sequence order, recomputes each record's
+/// hash from its stored contents, and reports the first inconsistency. The
+/// walk stops at the first break, so `records` counts the records checked
+/// before it. `unsequenced` counts records written before the chain
+/// existed and not yet sealed; it should stay at zero.
+#[utoipa::path(
+  get,
+  path = crate::constants::api::audit::VERIFY,
+  tag = "audit",
+  security(("bearerAuth" = []), ("cookieAuth" = [])),
+  responses(
+    (status = 200, description = "Audit chain verified", body = inline(HttpResponseFormat<ChainVerifyReport>)),
+    (status = 401, description = "Authentication is required", body = crate::http::ErrorBody),
+    (status = 403, description = "Only administrators may verify the audit chain", body = crate::http::ErrorBody),
+  ),
+)]
+pub async fn verify(
+  State(state): State<AppState>,
+  identity: AuthIdentity,
+) -> Result<HttpResponse<ChainVerifyReport>, AuditError> {
+  Ok(HttpResponse::ok(
+    service::verify(&state, &identity).await?,
+    "AUDIT_CHAIN_VERIFIED",
+  ))
+}

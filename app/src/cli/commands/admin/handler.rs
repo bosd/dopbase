@@ -371,7 +371,7 @@ async fn reset_password(
     .execute(&mut *tx)
     .await?;
   crate::modules::common::audit(
-    &mut *tx,
+    &mut tx,
     "system",
     None,
     Some("offline-recovery"),

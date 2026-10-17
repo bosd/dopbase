@@ -27,6 +27,26 @@ and the retire deadline. Rolling a rotation back records `secret.promoted`, and
 ending a grace period records `secret.retired`. Rotation records name versions
 and deadlines, never either value.
 
+## Integrity and verification
+
+Every audit record is part of a hash chain. It stores its position in the log,
+the hash of the record before it, and the hash of its own stored contents, so
+modifying, removing, or inserting a record leaves a trace at that point.
+
+- `dopbase audit verify` recomputes every hash in sequence order, stops at the
+  first break, and exits with code `0` when the chain is intact and `2` when it
+  is broken. `--json` prints the head sequence and hash, which an operator can
+  anchor in external, write-once storage.
+- `GET /api/v1/audit-events/verify` serves the same check to scripts. It is
+  restricted to administrators, like reading the log itself.
+- Records written before the chain existed are sealed during the next startup,
+  and a backup restored from an older release is sealed during the restore, so
+  verification covers the whole log rather than only new records.
+
+The chain proves that a record was not edited after it was written. It cannot
+stop someone with write access to the database file from deleting the newest
+records, so ship an export elsewhere when you need more than tamper evidence.
+
 ## Record contents
 
 Root and admin can review user, AI account, and backup history in the Audit page.
@@ -58,4 +78,4 @@ environment: production
 secret: DATABASE_URL
 ```
 
-Retention, export, advanced filtering, and additional integrity guarantees remain roadmap work.
+Retention, export, advanced filtering, and signed checkpoints remain roadmap work.

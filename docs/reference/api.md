@@ -31,7 +31,7 @@ in your installed version.
 | Secrets, rotation, import, export, and runtime values | `/api/v1/environments/{id}/secrets`                  |
 | Runner tokens                                         | `/api/v1/environments/{id}/tokens`, `/api/v1/tokens` |
 | System backups and restoration                        | `/api/v1/backups`, `/api/v1/bootstrap/restore`       |
-| Audit and instance status                             | `/api/v1/audit-events`, `/api/v1/instance`           |
+| Audit log, chain verification, and instance status    | `/api/v1/audit-events`, `/api/v1/instance`           |
 | Human users                                           | `/api/v1/users`                                      |
 | AI service accounts                                   | `/api/v1/service-accounts`                           |
 | Instance summary                                      | `/api/v1/status`                                     |
@@ -102,6 +102,24 @@ While a grace period runs, secret metadata carries `previousVersion` and
 alongside the current one for verification tooling; without the parameter the
 response keeps its original shape. Rotation never changes the current value, so
 runtime consumers and older clients are unaffected.
+
+## Audit chain verification
+
+`GET /api/v1/audit-events/verify` walks the audit log in sequence order,
+recomputes every record's hash from its stored contents, and reports the first
+inconsistency. Administrators only, like reading the audit log; runner tokens
+and AI service accounts are refused with `403`.
+
+The response carries `ok`, the number of `records` checked before the first
+break, `headSeq` and `headHash` for external anchoring, `unsequenced` for
+records that sit outside the chain, and `broken` with the sequence number,
+record ID, and reason when something does not match. Records written before
+this release are sealed into the chain on the next startup, so `unsequenced`
+stays at zero.
+
+The chain columns are additive: the existing audit list keeps its shape and
+filters, and verification reads no secret values. `dopbase audit verify` runs
+the same check from the terminal.
 
 ## Authentication
 

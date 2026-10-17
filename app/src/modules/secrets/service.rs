@@ -246,7 +246,7 @@ pub async fn set(
   // the only one that stays valid.
   sqlx::query("INSERT INTO secrets(environment_id,key,version,ciphertext,value_nonce,wrapped_key,key_nonce,created_at,updated_at)VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(environment_id,key) DO UPDATE SET version=excluded.version,ciphertext=excluded.ciphertext,value_nonce=excluded.value_nonce,wrapped_key=excluded.wrapped_key,key_nonce=excluded.key_nonce,updated_at=excluded.updated_at,previous_version=NULL,previous_ciphertext=NULL,previous_value_nonce=NULL,previous_wrapped_key=NULL,previous_key_nonce=NULL,previous_expires_at=NULL").bind(id).bind(&key).bind(version).bind(encrypted.ciphertext).bind(encrypted.value_nonce).bind(encrypted.wrapped_key).bind(encrypted.key_nonce).bind(&created_at).bind(&now).execute(&mut *tx).await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -303,7 +303,7 @@ pub async fn rotate(
     .bind(previous_version).bind(previous.as_ref().map(|value| &value.ciphertext)).bind(previous.as_ref().map(|value| &value.value_nonce)).bind(previous.as_ref().map(|value| &value.wrapped_key)).bind(previous.as_ref().map(|value| &value.key_nonce)).bind(&expires_at)
     .bind(id).bind(&key).execute(&mut *tx).await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -365,7 +365,7 @@ pub async fn promote(
     .bind(demoted_version).bind(&demoted.ciphertext).bind(&demoted.value_nonce).bind(&demoted.wrapped_key).bind(&demoted.key_nonce).bind(now.to_rfc3339())
     .bind(id).bind(key).execute(&mut *tx).await?;
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -408,7 +408,7 @@ pub async fn delete(
     ));
   }
   common::audit(
-    &mut *tx,
+    &mut tx,
     "admin",
     Some(admin_id),
     Some(email),
@@ -481,7 +481,7 @@ pub async fn reveal(
     }),
     _ => None,
   };
-  common::audit(
+  common::audit_standalone(
     state.db.pool(),
     "admin",
     Some(admin_id),
@@ -682,7 +682,7 @@ pub async fn import(
       .fetch_optional(&mut *tx)
       .await?;
   let revision = collection_revision(id, resulting_rows.iter(), resulting_layout.as_deref());
-  common::audit(&mut *tx,"admin",Some(admin_id),Some(email),"secret.imported",Some(&env.project_id),Some(id),Some("environment"),Some(id),serde_json::json!({"added":added,"updated":updated,"unchanged":unchanged,"deleted":deleted,"layout":request.env_layout.is_some()})).await?;
+  common::audit(&mut tx,"admin",Some(admin_id),Some(email),"secret.imported",Some(&env.project_id),Some(id),Some("environment"),Some(id),serde_json::json!({"added":added,"updated":updated,"unchanged":unchanged,"deleted":deleted,"layout":request.env_layout.is_some()})).await?;
   tx.commit().await?;
   Ok(ImportSecretsResponse {
     added_keys: added,
@@ -780,7 +780,7 @@ pub async fn export(
   // Committed rather than rolled back: the snapshot holds no writes, so the
   // only thing a commit preserves is a retirement the read performed.
   tx.commit().await?;
-  common::audit(
+  common::audit_standalone(
     state.db.pool(),
     actor_type,
     Some(actor_id),
@@ -845,7 +845,7 @@ pub async fn runtime(
       })
     })
     .collect::<Result<Vec<_>, _>>()?;
-  common::audit(
+  common::audit_standalone(
     state.db.pool(),
     actor_type,
     Some(actor_id),

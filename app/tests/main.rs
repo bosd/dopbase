@@ -978,6 +978,91 @@ async fn concurrent_token_revokes_create_one_transition_and_one_audit() {
 }
 
 #[tokio::test]
+async fn audit_verification_chains_real_requests_and_reports_tampering() {
+  let (_directory, state, router, token, environment_id) = admin_environment().await;
+  // Real writes, so the chain covers more than the bootstrap records.
+  for key in ["DATABASE_URL", "API_KEY"] {
+    let (status, _, _) = call(
+      &router,
+      "PUT",
+      &format!("/api/v1/environments/{environment_id}/secrets/{key}"),
+      Some(&token),
+      Some(json!({"value":format!("value-for-{key}")})),
+    )
+    .await;
+    assert_eq!(status, 200);
+  }
+
+  let (status, report, _) = call(
+    &router,
+    "GET",
+    "/api/v1/audit-events/verify",
+    Some(&token),
+    None,
+  )
+  .await;
+  assert_eq!(status, 200);
+  assert_eq!(report["data"]["ok"], json!(true));
+  assert_eq!(report["data"]["unsequenced"], json!(0));
+  assert_eq!(report["data"]["broken"], Value::Null);
+  let records = report["data"]["records"].as_u64().unwrap();
+  assert!(
+    records >= 5,
+    "expected bootstrap, login, project, environment and secret records, got {records}"
+  );
+  assert_eq!(report["data"]["headSeq"].as_u64(), Some(records));
+
+  // Reviewing the chain is administrator-only, like the audit log itself.
+  let (status, _, _) = call(&router, "GET", "/api/v1/audit-events/verify", None, None).await;
+  assert_eq!(status, 401);
+  let (_, created, _) = call(
+    &router,
+    "POST",
+    &format!("/api/v1/environments/{environment_id}/tokens"),
+    Some(&token),
+    Some(json!({"name":"deploy","role":"runner"})),
+  )
+  .await;
+  let runner_token = created["data"]["plaintextToken"].as_str().unwrap();
+  let (status, _, _) = call(
+    &router,
+    "GET",
+    "/api/v1/audit-events/verify",
+    Some(runner_token),
+    None,
+  )
+  .await;
+  assert_eq!(status, 403);
+
+  // Editing a record in place breaks the chain at exactly that record.
+  sqlx::query("UPDATE audit_events SET action='tampered.for.test' WHERE seq=2")
+    .execute(state.db.pool())
+    .await
+    .unwrap();
+  let (status, report, _) = call(
+    &router,
+    "GET",
+    "/api/v1/audit-events/verify",
+    Some(&token),
+    None,
+  )
+  .await;
+  assert_eq!(status, 200);
+  assert_eq!(report["data"]["ok"], json!(false));
+  assert_eq!(report["data"]["records"], json!(1));
+  assert_eq!(report["data"]["broken"]["seq"], json!(2));
+  assert!(
+    report["data"]["broken"]["reason"]
+      .as_str()
+      .unwrap()
+      .contains("hash"),
+    "unexpected reason: {}",
+    report["data"]["broken"]["reason"]
+  );
+  state.db.close().await;
+}
+
+#[tokio::test]
 async fn health_and_openapi_are_available() {
   let (_directory, state, router) = test_app().await;
   let (status, body, _) = call(&router, "GET", "/api/v1/health", None, None).await;
